@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Payment Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root {
+  --bg: #0a0a0a; --surface: #141414; --surface2: #1c1c1e; --surface3: #252528;
+  --border: #2a2a2d; --border2: #38383b;
+  --text: #f5f5f7; --text2: #a1a1a6; --text3: #636366;
+  --accent: #a855f7; --accent2: #c084fc; --accent-dim: rgba(168,85,247,.12);
+  --green: #34d399; --green-dim: rgba(52,211,153,.12);
+  --amber: #fbbf24; --amber-dim: rgba(251,191,36,.12);
+  --red: #f87171; --red-dim: rgba(248,113,113,.12);
+  --radius: 16px; --radius-sm: 10px; --radius-xs: 8px;
+}
+body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100dvh; -webkit-font-smoothing: antialiased; }
+
+/* Header */
+.header { padding: 16px 20px 12px; display: flex; align-items: center; justify-content: space-between; max-width: 600px; margin: 0 auto; }
+.logo { font-size: .95rem; font-weight: 700; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
+.logo-icon { width: 28px; height: 28px; background: linear-gradient(135deg, var(--accent), #7c3aed); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+.logo-icon svg { color: #fff; }
+.header-actions { display: flex; align-items: center; gap: 6px; }
+.header-actions select { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px; font: inherit; font-size: .78rem; font-weight: 500; cursor: pointer; outline: none; appearance: none; -webkit-appearance: none; padding-right: 24px; background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23636366' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+.header-actions select:focus { border-color: var(--accent); }
+.icon-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: none; background: var(--surface2); color: var(--text2); border-radius: 50%; cursor: pointer; transition: .15s; }
+.icon-btn:hover { background: var(--surface3); color: var(--text); }
+
+/* Tabs — desktop */
+.tab-bar-desktop { display: flex; gap: 4px; background: var(--surface); border-radius: 12px; padding: 4px; max-width: 600px; margin: 0 auto 16px; }
+.tab-btn-d { flex: 1; padding: 10px; text-align: center; font-size: .82rem; font-weight: 600; color: var(--text3); background: none; border: none; border-radius: 10px; cursor: pointer; transition: .2s; font-family: inherit; }
+.tab-btn-d.active { background: var(--accent-dim); color: var(--accent2); }
+.tab-btn-d:not(.active):hover { color: var(--text2); }
+
+/* Content */
+.page { max-width: 600px; margin: 0 auto; padding: 0 20px 120px; }
+.view { display: none; }
+.view.active { display: block; }
+.section { margin-bottom: 16px; }
+.section-label { font-size: .65rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin-bottom: 8px; padding-left: 2px; }
+
+/* Cards */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.card-body { padding: 18px; }
+
+/* Form */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-grid .full { grid-column: 1 / -1; }
+.field label { display: block; font-size: .65rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); margin-bottom: 4px; }
+.field input, .field select { width: 100%; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-xs); padding: 10px 12px; font-size: .875rem; font-family: inherit; transition: border-color .15s; }
+.field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+.field input::placeholder { color: var(--text3); }
+.field select option { background: var(--surface2); color: var(--text); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px 20px; border: none; border-radius: var(--radius-xs); font-size: .85rem; font-weight: 600; font-family: inherit; cursor: pointer; transition: all .15s; }
+.btn-accent { background: linear-gradient(135deg, var(--accent), #7c3aed); color: #fff; }
+.btn-accent:hover { filter: brightness(1.1); }
+.btn-accent:active { transform: scale(.98); }
+.btn-ghost { background: transparent; color: var(--text2); }
+.btn-ghost:hover { background: var(--surface2); color: var(--text); }
+.btn-sm { padding: 5px 10px; font-size: .75rem; border-radius: 6px; }
+.btn-danger { color: var(--red); }
+.btn-danger:hover { background: var(--red-dim); }
+.btn-full { width: 100%; }
+
+/* Recent payments on add tab */
+.recent-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.recent-item:last-child { border-bottom: none; }
+.recent-left { display: flex; align-items: center; gap: 10px; }
+.recent-icon { width: 34px; height: 34px; background: var(--accent-dim); color: var(--accent2); border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: .7rem; font-weight: 700; }
+.recent-info { font-size: .82rem; font-weight: 500; }
+.recent-sub { font-size: .72rem; color: var(--text3); }
+.recent-amount { font-size: .88rem; font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
+
+/* Cycle card */
+.cycle-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.cycle-month { font-size: 1.2rem; font-weight: 800; letter-spacing: -.02em; }
+.cycle-range { font-size: .7rem; color: var(--text3); margin-top: 2px; }
+.badge { padding: 4px 10px; border-radius: 20px; font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.badge-green { background: var(--green-dim); color: var(--green); }
+.badge-amber { background: var(--amber-dim); color: var(--amber); }
+.badge-red { background: var(--red-dim); color: var(--red); }
+
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat-tile { background: var(--surface2); border-radius: var(--radius-sm); padding: 14px 10px; text-align: center; }
+.stat-tile .sl { font-size: .58rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); }
+.stat-tile .sv { font-size: 1.05rem; font-weight: 700; margin-top: 3px; font-variant-numeric: tabular-nums; }
+.stat-tile .sv.green { color: var(--green); }
+.stat-tile .sv.red { color: var(--red); }
+.stat-tile .sv.amber { color: var(--amber); }
+.stat-tile.wide { grid-column: span 3; display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; }
+.stat-tile.wide .sl { font-size: .7rem; }
+.stat-tile.wide .sv { margin-top: 0; font-size: 1rem; }
+
+.progress-track { height: 4px; background: var(--surface3); border-radius: 2px; margin-top: 14px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 2px; transition: width .5s ease; }
+
+.credit-note { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 10px 12px; border-radius: var(--radius-xs); font-size: .78rem; font-weight: 500; }
+.credit-note.warn { background: var(--red-dim); color: var(--red); }
+.credit-note.ok { background: var(--green-dim); color: var(--green); }
+
+/* Payment table */
+.pay-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); gap: 8px; }
+.pay-row:last-child { border-bottom: none; }
+.pay-left { flex: 1; min-width: 0; }
+.pay-primary { font-size: .84rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.pay-secondary { font-size: .72rem; color: var(--text3); margin-top: 1px; }
+.pay-amount { font-size: .9rem; font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pay-actions { display: flex; gap: 2px; margin-left: 4px; }
+.method-chip { font-size: .62rem; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: var(--surface3); color: var(--text2); }
+
+/* Past cycles */
+.past-card { background: var(--surface2); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 8px; }
+.past-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.past-title { font-size: .82rem; font-weight: 600; }
+.past-range { font-size: .68rem; color: var(--text3); }
+.past-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.past-stat { text-align: center; }
+.past-stat .ps-label { font-size: .56rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); }
+.past-stat .ps-value { font-size: .85rem; font-weight: 700; margin-top: 1px; font-variant-numeric: tabular-nums; }
+
+/* Bottom Nav — mobile */
+.bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: rgba(20,20,20,.92); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--border); padding: 6px 0 env(safe-area-inset-bottom, 8px); z-index: 100; }
+.bottom-nav-inner { display: flex; justify-content: center; gap: 8px; max-width: 300px; margin: 0 auto; padding: 0 20px; }
+.nav-pill { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 12px; border: none; background: none; color: var(--text3); font-family: inherit; font-size: .62rem; font-weight: 600; cursor: pointer; border-radius: 12px; transition: .2s; }
+.nav-pill.active { color: var(--accent2); background: var(--accent-dim); }
+.nav-pill svg { transition: .2s; }
+.nav-pill.active svg { color: var(--accent2); }
+
+/* Export floating btn */
+.export-float { position: fixed; bottom: 20px; right: 20px; z-index: 90; }
+.export-float .btn { border-radius: 50px; padding: 12px 20px; box-shadow: 0 4px 20px rgba(168,85,247,.3); }
+
+/* Modal */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 200; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.overlay.open { opacity: 1; pointer-events: auto; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; width: 90%; max-width: 400px; }
+.modal h3 { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+.modal p { color: var(--text2); font-size: .82rem; margin-bottom: 16px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.modal .field { margin-bottom: 10px; }
+
+/* Toast */
+.toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-12px); background: var(--surface2); color: var(--text); border: 1px solid var(--border); padding: 10px 20px; border-radius: 50px; font-size: .82rem; font-weight: 500; z-index: 300; opacity: 0; transition: .3s; pointer-events: none; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.empty { text-align: center; padding: 32px 16px; color: var(--text3); font-size: .82rem; }
+
+/* Desktop: show tab bar, hide bottom nav */
+@media (min-width: 641px) {
+  .tab-bar-desktop { display: flex; }
+  .bottom-nav { display: none !important; }
+  .export-float { bottom: 20px; }
+}
+
+/* Mobile: hide tab bar, show bottom nav */
+@media (max-width: 640px) {
+  .tab-bar-desktop { display: none; }
+  .bottom-nav { display: block; }
+  .page { padding-bottom: 140px; }
+  .export-float { bottom: 84px; right: 16px; }
+  .export-float .btn { padding: 10px 16px; font-size: .8rem; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-tile.wide { grid-column: span 2; }
+  .past-stats { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M2 12h20"/></svg></div>
+    Payments
+  </div>
+  <div class="header-actions">
+    <select id="clientSelect"></select>
+    <button class="icon-btn" onclick="openModal('addClientModal')" title="Add client">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+    </button>
+    <button class="icon-btn" onclick="openModal('settingsModal')" title="Settings">
+      <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Desktop tab bar -->
+<div class="tab-bar-desktop">
+  <button class="tab-btn-d active" onclick="switchTab('add')">Add Payment</button>
+  <button class="tab-btn-d" onclick="switchTab('stats')">Stats</button>
+</div>
+
+<div class="page">
+
+  <!-- ============ ADD VIEW ============ -->
+  <div class="view active" id="view-add">
+
+    <div class="section">
+      <div class="section-label">New Payment</div>
+      <div class="card"><div class="card-body">
+        <form class="form-grid" id="payForm" onsubmit="return submitPayment(event)">
+          <div class="field"><label>Date</label><input type="date" id="pDate" required></div>
+          <div class="field"><label>Amount ($)</label><input type="number" id="pAmount" step="0.01" min="0.01" placeholder="0.00" required></div>
+          <div class="field"><label>Method</label>
+            <select id="pMethod"><option>ACH</option><option>Check</option><option>Cash</option><option>Wire</option><option>Other</option></select>
+          </div>
+          <div class="field"><label>Invoice</label><input type="text" id="pInvoice" placeholder="INV-XXX"></div>
+          <div class="field full"><label>Notes</label><input type="text" id="pNotes" placeholder="Optional"></div>
+          <div class="full"><button type="submit" class="btn btn-accent btn-full" id="payBtn">Record Payment</button></div>
+        </form>
+      </div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Recent</div>
+      <div class="card"><div class="card-body" id="recentList"><div class="empty">No payments yet.</div></div></div>
+    </div>
+
+  </div>
+
+  <!-- ============ STATS VIEW ============ -->
+  <div class="view" id="view-stats">
+
+    <div class="section">
+      <div class="section-label">Current Cycle</div>
+      <div class="card"><div class="card-body" id="currentCycle"><div class="empty">Loading...</div></div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">All Payments</div>
+      <div class="card"><div class="card-body" id="allPayments"><div class="empty">Loading...</div></div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Past Cycles</div>
+      <div id="pastCycles"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Export -->
+<div class="export-float">
+  <button class="btn btn-accent" onclick="exportXlsx()">
+    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Export
+  </button>
+</div>
+
+<!-- Mobile Bottom Nav -->
+<div class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="nav-pill active" id="nav-add" onclick="switchTab('add')">
+      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Add
+    </button>
+    <button class="nav-pill" id="nav-stats" onclick="switchTab('stats')">
+      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Stats
+    </button>
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="overlay" id="deleteModal">
+  <div class="modal">
+    <h3>Delete Payment</h3>
+    <p>This can't be undone.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('deleteModal')">Cancel</button>
+      <button class="btn btn-accent btn-danger" id="confirmDelete" style="background:var(--red)">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="editModal">
+  <div class="modal">
+    <h3>Edit Payment</h3>
+    <form id="editForm" onsubmit="return submitEdit(event)">
+      <input type="hidden" id="editId">
+      <div class="field"><label>Date</label><input type="date" id="editDate" required></div>
+      <div class="field"><label>Amount</label><input type="number" id="editAmount" step="0.01" min="0.01" required></div>
+      <div class="field"><label>Method</label>
+        <select id="editMethod"><option>ACH</option><option>Check</option><option>Cash</option><option>Wire</option><option>Other</option></select>
+      </div>
+      <div class="field"><label>Invoice</label><input type="text" id="editInvoice"></div>
+      <div class="field"><label>Notes</label><input type="text" id="editNotes"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('editModal')">Cancel</button>
+        <button type="submit" class="btn btn-accent">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="addClientModal">
+  <div class="modal">
+    <h3>New Client</h3>
+    <form onsubmit="return addClient(event)">
+      <div class="field"><label>Name</label><input type="text" id="newClientName" required placeholder="Client name"></div>
+      <div class="field"><label>Monthly Due ($)</label><input type="number" id="newClientDue" step="0.01" value="6500" required></div>
+      <div class="field"><label>Billing Start Date</label><input type="date" id="newClientStart" required></div>
+      <div class="field"><label>Initial Balance Owed ($)</label><input type="number" id="newClientBal" step="0.01" value="0"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('addClientModal')">Cancel</button>
+        <button type="submit" class="btn btn-accent">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="settingsModal">
+  <div class="modal">
+    <h3>Client Settings</h3>
+    <form onsubmit="return saveSettings(event)">
+      <div class="field"><label>Monthly Due ($)</label><input type="number" id="setDue" step="0.01" required></div>
+      <div class="field"><label>Billing Start Date</label><input type="date" id="setStart" required></div>
+      <div class="field"><label>Initial Balance Owed ($)</label><input type="number" id="setBal" step="0.01" required></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('settingsModal')">Cancel</button>
+        <button type="submit" class="btn btn-accent">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://agizbspmmqqnzjonafyn.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFnaXpic3BtbXFxbnpqb25hZnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0MDY3NjMsImV4cCI6MjEwNDk4Mjc2M30.gkls0FFOL7rMQegEDeOvIMnTsLpMIefLhBN1d-iED_E';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let client = null;
+let allPayments = [];
+let allCycles = [];
+
+const $ = id => document.getElementById(id);
+const fmt = n => Number(n).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+const fmtD = d => { if (!d) return '—'; const p = d.split('-'); return `${+p[1]}/${+p[2]}/${p[0]}`; };
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
+function openModal(id) {
+  $(id).classList.add('open');
+  if (id === 'settingsModal' && client) {
+    $('setDue').value = client.monthly_due;
+    $('setStart').value = client.start_date;
+    $('setBal').value = client.initial_balance;
+  }
+}
+function closeModal(id) { $(id).classList.remove('open'); }
+
+function switchTab(tab) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  $(`view-${tab}`).classList.add('active');
+  document.querySelectorAll('.tab-btn-d').forEach((b, i) => b.classList.toggle('active', (i === 0 && tab === 'add') || (i === 1 && tab === 'stats')));
+  document.querySelectorAll('.nav-pill').forEach(p => p.classList.remove('active'));
+  $(`nav-${tab}`).classList.add('active');
+}
+
+function badgeFor(status) {
+  const cls = status === 'Paid' ? 'badge-green' : status === 'Partially Paid' ? 'badge-amber' : 'badge-red';
+  return `<span class="badge ${cls}">${status}</span>`;
+}
+
+function pad(year, month, day) {
+  const maxDay = new Date(year, month, 0).getDate();
+  const d = Math.min(day, maxDay);
+  return `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+function generateCycles(client, payments) {
+  const monthlyDue = Number(client.monthly_due);
+  const initialBal = Number(client.initial_balance);
+  const [sy, sm] = client.start_date.split('-').map(Number);
+  const todayStr = new Date().toISOString().split('T')[0];
+  const cycles = [];
+  let year = sy, month = sm, carryover = initialBal;
+
+  while (true) {
+    const cycleStart = pad(year, month, 15);
+    let eYear = month === 12 ? year + 1 : year;
+    let eMonth = month === 12 ? 1 : month + 1;
+    const cycleEnd = pad(eYear, eMonth, 14);
+
+    const cyclePays = payments.filter(p => p.payment_date >= cycleStart && p.payment_date <= cycleEnd);
+    const totalPaid = cyclePays.reduce((s, p) => s + Number(p.amount), 0);
+    const totalOwed = carryover + monthlyDue;
+    const remaining = Math.max(totalOwed - totalPaid, 0);
+    const status = remaining <= 0 ? 'Paid' : totalPaid > 0 ? 'Partially Paid' : 'Unpaid';
+    const pct = totalOwed > 0 ? Math.min(100, (totalPaid / totalOwed) * 100) : 100;
+
+    cycles.push({
+      start: cycleStart, end: cycleEnd,
+      month_name: MONTHS[month - 1], year,
+      opening_balance: carryover, monthly_due: monthlyDue,
+      total_owed: totalOwed, total_paid: totalPaid,
+      remaining, status, pct, payments: cyclePays
+    });
+
+    carryover = remaining;
+    if (cycleEnd >= todayStr) break;
+    month++;
+    if (month > 12) { month = 1; year++; }
+    if (cycles.length > 120) break;
+  }
+  return cycles;
+}
+
+function cycleForDate(dateStr) { return allCycles.find(c => dateStr >= c.start && dateStr <= c.end); }
+function cycleLabel(c) { return `${c.month_name} ${c.year}`; }
+
+async function loadClients() {
+  const { data } = await sb.from('clients').select('*').order('name');
+  const sel = $('clientSelect');
+  sel.innerHTML = (data || []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  if (data && data.length) { client = data[0]; sel.value = client.id; }
+  sel.onchange = () => { client = data.find(c => c.id === +sel.value); refresh(); };
+  return data || [];
+}
+
+async function refresh() {
+  if (!client) return;
+  const { data: pay } = await sb.from('payments').select('*').eq('client_id', client.id).order('payment_date', { ascending: true });
+  allPayments = pay || [];
+  allCycles = generateCycles(client, allPayments);
+  const current = allCycles[allCycles.length - 1];
+  const past = allCycles.slice(0, -1).reverse();
+  renderCurrent(current);
+  renderRecent([...allPayments].reverse().slice(0, 5));
+  renderPayments([...allPayments].reverse());
+  renderPast(past);
+}
+
+function renderCurrent(c) {
+  const el = $('currentCycle');
+  if (!c) { el.innerHTML = '<div class="empty">No cycles yet.</div>'; return; }
+  const color = c.status === 'Paid' ? 'var(--green)' : c.status === 'Partially Paid' ? 'var(--amber)' : 'var(--red)';
+  const creditNote = c.opening_balance > 0
+    ? `<div class="credit-note warn"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>${fmt(c.opening_balance)} unpaid from previous cycle</div>`
+    : c.opening_balance === 0 && allCycles.length > 1
+    ? `<div class="credit-note ok"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>No outstanding credit</div>`
+    : '';
+
+  el.innerHTML = `
+    <div class="cycle-head">
+      <div>
+        <div class="cycle-month">${c.month_name}'s Cycle</div>
+        <div class="cycle-range">${fmtD(c.start)} — ${fmtD(c.end)}</div>
+      </div>
+      ${badgeFor(c.status)}
+    </div>
+    <div class="stats-grid">
+      <div class="stat-tile"><div class="sl">Credit</div><div class="sv ${c.opening_balance > 0 ? 'red' : ''}">${fmt(c.opening_balance)}</div></div>
+      <div class="stat-tile"><div class="sl">Monthly Due</div><div class="sv">${fmt(c.monthly_due)}</div></div>
+      <div class="stat-tile"><div class="sl">Total Owed</div><div class="sv">${fmt(c.total_owed)}</div></div>
+      <div class="stat-tile"><div class="sl">Paid</div><div class="sv green">${fmt(c.total_paid)}</div></div>
+      <div class="stat-tile wide"><div class="sl">Remaining</div><div class="sv ${c.remaining > 0 ? 'red' : 'green'}">${fmt(c.remaining)}</div></div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" style="width:${c.pct}%;background:${color}"></div></div>
+    ${creditNote}
+  `;
+}
+
+function renderRecent(payments) {
+  const el = $('recentList');
+  if (!payments.length) { el.innerHTML = '<div class="empty">No payments yet.</div>'; return; }
+  el.innerHTML = payments.map(p => {
+    const initials = (p.method || '?').substring(0, 2).toUpperCase();
+    return `<div class="recent-item">
+      <div class="recent-left">
+        <div class="recent-icon">${initials}</div>
+        <div>
+          <div class="recent-info">${p.invoice || p.method} <span style="color:var(--text3);font-size:.72rem">${fmtD(p.payment_date)}</span></div>
+          <div class="recent-sub">${p.notes || 'Payment'}</div>
+        </div>
+      </div>
+      <div class="recent-amount">${fmt(p.amount)}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderPayments(payments) {
+  const el = $('allPayments');
+  if (!payments.length) { el.innerHTML = '<div class="empty">No payments yet.</div>'; return; }
+  el.innerHTML = payments.map(p => {
+    const cyc = cycleForDate(p.payment_date);
+    return `<div class="pay-row">
+      <div class="pay-left">
+        <div class="pay-primary">
+          ${fmtD(p.payment_date)}
+          <span class="method-chip">${p.method}</span>
+        </div>
+        <div class="pay-secondary">${p.invoice || '—'} ${p.notes ? '· ' + p.notes : ''} ${cyc ? '· ' + cycleLabel(cyc) : ''}</div>
+      </div>
+      <div class="pay-amount">${fmt(p.amount)}</div>
+      <div class="pay-actions">
+        <button class="btn btn-ghost btn-sm" onclick='editPay(${JSON.stringify(p).replace(/'/g,"&#39;")})'>
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="btn btn-ghost btn-sm btn-danger" onclick="deletePay(${p.id})">
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderPast(list) {
+  const el = $('pastCycles');
+  if (!list.length) { el.innerHTML = '<div class="card"><div class="card-body empty">No previous cycles.</div></div>'; return; }
+  el.innerHTML = list.map(c => `
+    <div class="past-card">
+      <div class="past-head">
+        <div>
+          <div class="past-title">${c.month_name}'s Cycle</div>
+          <div class="past-range">${fmtD(c.start)} — ${fmtD(c.end)}</div>
+        </div>
+        ${badgeFor(c.status)}
+      </div>
+      <div class="past-stats">
+        <div class="past-stat"><div class="ps-label">Credit</div><div class="ps-value" style="color:${c.opening_balance > 0 ? 'var(--red)' : 'var(--text)'}">${fmt(c.opening_balance)}</div></div>
+        <div class="past-stat"><div class="ps-label">Due</div><div class="ps-value">${fmt(c.monthly_due)}</div></div>
+        <div class="past-stat"><div class="ps-label">Paid</div><div class="ps-value" style="color:var(--green)">${fmt(c.total_paid)}</div></div>
+        <div class="past-stat"><div class="ps-label">Remaining</div><div class="ps-value" style="color:${c.remaining > 0 ? 'var(--red)' : 'var(--green)'}">${fmt(c.remaining)}</div></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function submitPayment(e) {
+  e.preventDefault();
+  const btn = $('payBtn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  const { error } = await sb.from('payments').insert({
+    client_id: client.id,
+    payment_date: $('pDate').value,
+    amount: parseFloat($('pAmount').value),
+    method: $('pMethod').value,
+    invoice: $('pInvoice').value || '',
+    notes: $('pNotes').value || ''
+  });
+  btn.disabled = false; btn.textContent = 'Record Payment';
+  if (error) { toast('Error: ' + error.message); return; }
+  $('payForm').reset();
+  $('pDate').value = new Date().toISOString().split('T')[0];
+  toast('Payment recorded');
+  refresh();
+}
+
+function deletePay(id) {
+  openModal('deleteModal');
+  $('confirmDelete').onclick = async () => {
+    await sb.from('payments').delete().eq('id', id);
+    closeModal('deleteModal');
+    toast('Payment deleted');
+    refresh();
+  };
+}
+
+function editPay(p) {
+  $('editId').value = p.id;
+  $('editDate').value = p.payment_date;
+  $('editAmount').value = p.amount;
+  $('editMethod').value = p.method;
+  $('editInvoice').value = p.invoice || '';
+  $('editNotes').value = p.notes || '';
+  openModal('editModal');
+}
+
+async function submitEdit(e) {
+  e.preventDefault();
+  await sb.from('payments').update({
+    payment_date: $('editDate').value,
+    amount: parseFloat($('editAmount').value),
+    method: $('editMethod').value,
+    invoice: $('editInvoice').value || '',
+    notes: $('editNotes').value || ''
+  }).eq('id', +$('editId').value);
+  closeModal('editModal');
+  toast('Payment updated');
+  refresh();
+}
+
+async function addClient(e) {
+  e.preventDefault();
+  const { data, error } = await sb.from('clients').insert({
+    name: $('newClientName').value.trim(),
+    monthly_due: parseFloat($('newClientDue').value),
+    cycle_start_day: 15,
+    start_date: $('newClientStart').value,
+    initial_balance: parseFloat($('newClientBal').value || 0)
+  }).select().single();
+  if (error) { toast('Error: ' + error.message); return; }
+  closeModal('addClientModal');
+  toast('Client added');
+  const clients = await loadClients();
+  client = clients.find(c => c.id === data.id);
+  $('clientSelect').value = data.id;
+  refresh();
+}
+
+async function saveSettings(e) {
+  e.preventDefault();
+  const { error } = await sb.from('clients').update({
+    monthly_due: parseFloat($('setDue').value),
+    start_date: $('setStart').value,
+    initial_balance: parseFloat($('setBal').value)
+  }).eq('id', client.id);
+  if (error) { toast('Error: ' + error.message); return; }
+  client.monthly_due = parseFloat($('setDue').value);
+  client.start_date = $('setStart').value;
+  client.initial_balance = parseFloat($('setBal').value);
+  closeModal('settingsModal');
+  toast('Settings saved');
+  refresh();
+}
+
+async function exportXlsx() {
+  const wb = XLSX.utils.book_new();
+  const cycleRows = allCycles.map(c => ({
+    'Cycle': `${c.month_name} ${c.year}`,
+    'Dates': `${c.start} to ${c.end}`,
+    'Credit': +c.opening_balance, 'Monthly Due': +c.monthly_due,
+    'Total Owed': +c.total_owed, 'Total Paid': +c.total_paid,
+    'Remaining': +c.remaining, 'Status': c.status
+  })).reverse();
+  const ws1 = XLSX.utils.json_to_sheet(cycleRows);
+  ws1['!cols'] = [{ wch: 18 },{ wch: 26 },{ wch: 14 },{ wch: 14 },{ wch: 14 },{ wch: 14 },{ wch: 14 },{ wch: 16 }];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Cycles');
+
+  const payRows = [...allPayments].reverse().map(p => {
+    const cyc = cycleForDate(p.payment_date);
+    return { 'Date': p.payment_date, 'Amount': +p.amount, 'Method': p.method,
+      'Invoice': p.invoice || '', 'Notes': p.notes || '',
+      'Cycle': cyc ? `${cyc.month_name} ${cyc.year}` : '' };
+  });
+  const ws2 = XLSX.utils.json_to_sheet(payRows);
+  ws2['!cols'] = [{ wch: 12 },{ wch: 12 },{ wch: 10 },{ wch: 12 },{ wch: 20 },{ wch: 28 }];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Payments');
+
+  const ts = new Date().toISOString().split('T')[0];
+  XLSX.writeFile(wb, `${(client?.name || 'Client').replace(/\s+/g, '_')}_Payments_${ts}.xlsx`);
+}
+
+document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) closeModal(o.id); }));
+
+document.addEventListener('DOMContentLoaded', async () => {
+  $('pDate').value = new Date().toISOString().split('T')[0];
+  await loadClients();
+  refresh();
+});
+</script>
+</body>
+</html>
