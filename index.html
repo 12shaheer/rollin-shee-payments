@@ -32,14 +32,19 @@ body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: v
 .icon-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: none; background: var(--surface2); color: var(--text2); border-radius: 50%; cursor: pointer; transition: .15s; }
 .icon-btn:hover { background: var(--surface3); color: var(--text); }
 
-/* Tabs — desktop */
-.tab-bar-desktop { display: flex; gap: 4px; background: var(--surface); border-radius: 12px; padding: 4px; max-width: 600px; margin: 0 auto 16px; }
-.tab-btn-d { flex: 1; padding: 10px; text-align: center; font-size: .82rem; font-weight: 600; color: var(--text3); background: none; border: none; border-radius: 10px; cursor: pointer; transition: .2s; font-family: inherit; }
-.tab-btn-d.active { background: var(--accent-dim); color: var(--accent2); }
-.tab-btn-d:not(.active):hover { color: var(--text2); }
+/* Floating bubble nav */
+.bubble-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; padding: 0 16px calc(env(safe-area-inset-bottom, 8px) + 10px); pointer-events: none; }
+.bubble-nav-pill { display: flex; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 50px; padding: 6px 8px; max-width: 300px; margin: 0 auto; box-shadow: 0 8px 32px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05) inset; pointer-events: auto; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.bubble-btn { display: flex; align-items: center; gap: 6px; border: none; background: none; color: var(--text3); font-family: inherit; font-size: .72rem; font-weight: 600; letter-spacing: .01em; cursor: pointer; padding: 10px 16px; border-radius: 50px; transition: all .35s cubic-bezier(.4,0,.2,1); -webkit-tap-highlight-color: transparent; white-space: nowrap; }
+.bubble-btn svg { width: 20px; height: 20px; stroke-width: 1.8; flex-shrink: 0; transition: all .35s cubic-bezier(.4,0,.2,1); }
+.bubble-btn span { display: inline-block; max-width: 0; overflow: hidden; opacity: 0; transition: max-width .35s cubic-bezier(.4,0,.2,1), opacity .25s ease; }
+.bubble-btn.active { background: var(--accent-dim); color: var(--accent2); }
+.bubble-btn.active svg { stroke-width: 2.2; color: var(--accent); }
+.bubble-btn.active span { max-width: 80px; opacity: 1; }
+.bubble-btn:active { transform: scale(.92); }
 
 /* Content */
-.page { max-width: 600px; margin: 0 auto; padding: 0 20px 120px; }
+.page { max-width: 600px; margin: 0 auto; padding: 0 20px 90px; }
 .view { display: none; }
 .view.active { display: block; }
 .section { margin-bottom: 16px; }
@@ -125,17 +130,6 @@ body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: v
 .past-stat .ps-label { font-size: .56rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); }
 .past-stat .ps-value { font-size: .85rem; font-weight: 700; margin-top: 1px; font-variant-numeric: tabular-nums; }
 
-/* Bottom Nav — Bubble style */
-.bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; padding: 0 16px calc(env(safe-area-inset-bottom, 8px) + 8px); }
-.bottom-nav-bg { background: var(--surface); border: 1px solid var(--border); border-radius: 50px; box-shadow: 0 4px 24px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.04) inset; max-width: 320px; margin: 0 auto; }
-.bottom-nav-inner { display: flex; justify-content: space-around; align-items: center; padding: 6px 8px; }
-.nav-item { display: flex; align-items: center; gap: 6px; border: none; background: none; color: var(--text3); font-family: inherit; font-size: .7rem; font-weight: 600; letter-spacing: .01em; cursor: pointer; padding: 10px 14px; border-radius: 50px; transition: all .3s cubic-bezier(.4,0,.2,1); -webkit-tap-highlight-color: transparent; position: relative; }
-.nav-item svg { width: 22px; height: 22px; stroke-width: 1.8; transition: all .3s cubic-bezier(.4,0,.2,1); flex-shrink: 0; }
-.nav-item span { max-width: 0; overflow: hidden; opacity: 0; transition: max-width .3s cubic-bezier(.4,0,.2,1), opacity .25s ease; white-space: nowrap; }
-.nav-item.active { background: var(--accent-dim); color: var(--accent2); }
-.nav-item.active svg { stroke-width: 2.2; color: var(--accent); }
-.nav-item.active span { max-width: 80px; opacity: 1; }
-.nav-item:active { transform: scale(.93); }
 
 /* Export floating btn */
 .export-float { position: fixed; bottom: 20px; right: 20px; z-index: 90; }
@@ -156,18 +150,13 @@ body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: v
 
 .empty { text-align: center; padding: 32px 16px; color: var(--text3); font-size: .82rem; }
 
-/* Desktop: show tab bar, hide bottom nav */
+/* Desktop */
 @media (min-width: 641px) {
-  .tab-bar-desktop { display: flex; }
-  .bottom-nav { display: none !important; }
-  .export-float { bottom: 20px; }
+  .export-float { bottom: 80px; }
 }
 
-/* Mobile: hide tab bar, show bottom nav */
+/* Mobile */
 @media (max-width: 640px) {
-  .tab-bar-desktop { display: none; }
-  .bottom-nav { display: block; }
-  .page { padding-bottom: 100px; }
   .export-float { display: none; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .stat-tile.wide { grid-column: span 2; }
@@ -194,11 +183,23 @@ body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: v
   </div>
 </div>
 
-<!-- Desktop tab bar -->
-<div class="tab-bar-desktop">
-  <button class="tab-btn-d active" onclick="switchTab('add')">Add Payment</button>
-  <button class="tab-btn-d" onclick="switchTab('stats')">Stats</button>
-</div>
+<!-- Floating bubble nav -->
+<nav class="bubble-nav">
+  <div class="bubble-nav-pill">
+    <button class="bubble-btn active" id="nav-add" onclick="switchTab('add')">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span>Add</span>
+    </button>
+    <button class="bubble-btn" id="nav-export" onclick="exportXlsx()">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span>Export</span>
+    </button>
+    <button class="bubble-btn" id="nav-stats" onclick="switchTab('stats')">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      <span>Stats</span>
+    </button>
+  </div>
+</nav>
 
 <div class="page">
 
@@ -258,25 +259,6 @@ body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: v
   </button>
 </div>
 
-<!-- Mobile Bottom Nav -->
-<div class="bottom-nav">
-  <div class="bottom-nav-bg">
-    <div class="bottom-nav-inner">
-      <button class="nav-item active" id="nav-add" onclick="switchTab('add')">
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4"/></svg>
-        <span>Home</span>
-      </button>
-      <button class="nav-item" id="nav-export" onclick="exportXlsx()">
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        <span>Export</span>
-      </button>
-      <button class="nav-item" id="nav-stats" onclick="switchTab('stats')">
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        <span>Stats</span>
-      </button>
-    </div>
-  </div>
-</div>
 
 <!-- Modals -->
 <div class="overlay" id="deleteModal">
@@ -371,8 +353,7 @@ function closeModal(id) { $(id).classList.remove('open'); }
 function switchTab(tab) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   $(`view-${tab}`).classList.add('active');
-  document.querySelectorAll('.tab-btn-d').forEach((b, i) => b.classList.toggle('active', (i === 0 && tab === 'add') || (i === 1 && tab === 'stats')));
-  document.querySelectorAll('.nav-item').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.bubble-btn').forEach(b => b.classList.remove('active'));
   $(`nav-${tab}`).classList.add('active');
 }
 
