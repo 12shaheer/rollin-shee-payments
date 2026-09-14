@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Payment Tracker</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -626,30 +626,267 @@ async function saveSettings(e) {
 }
 
 async function exportXlsx() {
-  const wb = XLSX.utils.book_new();
-  const cycleRows = allCycles.map(c => ({
-    'Cycle': `${c.month_name} ${c.year}`,
-    'Dates': `${c.start} to ${c.end}`,
-    'Credit': +c.opening_balance, 'Monthly Due': +c.monthly_due,
-    'Total Owed': +c.total_owed, 'Total Paid': +c.total_paid,
-    'Remaining': +c.remaining, 'Status': c.status
-  })).reverse();
-  const ws1 = XLSX.utils.json_to_sheet(cycleRows);
-  ws1['!cols'] = [{ wch: 18 },{ wch: 26 },{ wch: 14 },{ wch: 14 },{ wch: 14 },{ wch: 14 },{ wch: 14 },{ wch: 16 }];
-  XLSX.utils.book_append_sheet(wb, ws1, 'Cycles');
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Payment Tracker';
+  wb.created = new Date();
 
-  const payRows = [...allPayments].reverse().map(p => {
-    const cyc = cycleForDate(p.payment_date);
-    return { 'Date': p.payment_date, 'Amount': +p.amount, 'Method': p.method,
-      'Invoice': p.invoice || '', 'Notes': p.notes || '',
-      'Cycle': cyc ? `${cyc.month_name} ${cyc.year}` : '' };
+  const clientName = client?.name || 'Client';
+  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const cycles = [...allCycles].reverse();
+  const payments = [...allPayments].reverse();
+
+  const purple = { argb: 'FF7C3AED' };
+  const darkBg = { argb: 'FF1A1A2E' };
+  const headerBg = { argb: 'FF2D2B55' };
+  const stripeBg = { argb: 'FFF8F7FF' };
+  const white = { argb: 'FFFFFFFF' };
+  const textDark = { argb: 'FF1A1A2E' };
+  const textMuted = { argb: 'FF6B7280' };
+  const greenBg = { argb: 'FFECFDF5' };
+  const greenText = { argb: 'FF059669' };
+  const amberBg = { argb: 'FFFFFBEB' };
+  const amberText = { argb: 'FFD97706' };
+  const redBg = { argb: 'FFFEF2F2' };
+  const redText = { argb: 'FFDC2626' };
+
+  const thinBorder = { style: 'thin', color: { argb: 'FFE5E7EB' } };
+  const allBorders = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
+  const currency = '"$"#,##0.00';
+
+  // ===== OVERVIEW SHEET =====
+  const ws1 = wb.addWorksheet('Overview', { properties: { tabColor: { argb: '7C3AED' } } });
+  ws1.columns = [
+    { width: 4 }, { width: 22 }, { width: 16 }, { width: 16 },
+    { width: 16 }, { width: 16 }, { width: 16 }, { width: 18 }
+  ];
+
+  // Title banner
+  ws1.mergeCells('B2:H2');
+  const titleCell = ws1.getCell('B2');
+  titleCell.value = `${clientName} — Payment Report`;
+  titleCell.font = { name: 'Calibri', size: 18, bold: true, color: white };
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: darkBg };
+  titleCell.alignment = { vertical: 'middle', horizontal: 'left' };
+  ws1.getRow(2).height = 40;
+  for (let c = 2; c <= 8; c++) {
+    ws1.getCell(2, c).fill = { type: 'pattern', pattern: 'solid', fgColor: darkBg };
+  }
+
+  // Subtitle
+  ws1.mergeCells('B3:H3');
+  const subCell = ws1.getCell('B3');
+  subCell.value = `Generated ${today}  •  Monthly Due: $${Number(client.monthly_due).toLocaleString()}  •  Cycles reset on the 15th`;
+  subCell.font = { name: 'Calibri', size: 10, color: { argb: 'FF9CA3AF' } };
+  subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: darkBg };
+  subCell.alignment = { vertical: 'middle', horizontal: 'left' };
+  ws1.getRow(3).height = 24;
+  for (let c = 2; c <= 8; c++) {
+    ws1.getCell(3, c).fill = { type: 'pattern', pattern: 'solid', fgColor: darkBg };
+  }
+
+  // Summary boxes row
+  const current = allCycles[allCycles.length - 1];
+  const totalAllPaid = allPayments.reduce((s, p) => s + Number(p.amount), 0);
+  const totalAllOwed = allCycles.reduce((s, c) => s + c.monthly_due, 0) + Number(client.initial_balance);
+
+  ws1.getRow(5).height = 14;
+  ws1.mergeCells('B5:C5');
+  ws1.getCell('B5').value = 'TOTAL PAID (ALL TIME)';
+  ws1.getCell('B5').font = { name: 'Calibri', size: 8, bold: true, color: textMuted };
+  ws1.mergeCells('D5:E5');
+  ws1.getCell('D5').value = 'OUTSTANDING BALANCE';
+  ws1.getCell('D5').font = { name: 'Calibri', size: 8, bold: true, color: textMuted };
+  ws1.mergeCells('F5:G5');
+  ws1.getCell('F5').value = 'TOTAL CYCLES';
+  ws1.getCell('F5').font = { name: 'Calibri', size: 8, bold: true, color: textMuted };
+
+  ws1.getRow(6).height = 28;
+  ws1.mergeCells('B6:C6');
+  ws1.getCell('B6').value = totalAllPaid;
+  ws1.getCell('B6').numFmt = currency;
+  ws1.getCell('B6').font = { name: 'Calibri', size: 16, bold: true, color: greenText };
+  ws1.mergeCells('D6:E6');
+  const outstanding = current ? current.remaining : 0;
+  ws1.getCell('D6').value = outstanding;
+  ws1.getCell('D6').numFmt = currency;
+  ws1.getCell('D6').font = { name: 'Calibri', size: 16, bold: true, color: outstanding > 0 ? redText : greenText };
+  ws1.mergeCells('F6:G6');
+  ws1.getCell('F6').value = allCycles.length;
+  ws1.getCell('F6').font = { name: 'Calibri', size: 16, bold: true, color: purple };
+
+  // ===== CYCLE TABLE =====
+  const cycleStartRow = 9;
+  ws1.mergeCells(`B${cycleStartRow}:H${cycleStartRow}`);
+  ws1.getCell(`B${cycleStartRow}`).value = 'BILLING CYCLES';
+  ws1.getCell(`B${cycleStartRow}`).font = { name: 'Calibri', size: 11, bold: true, color: purple };
+  ws1.getRow(cycleStartRow).height = 20;
+
+  const cycleHeaderRow = cycleStartRow + 1;
+  const cycleHeaders = ['Cycle', 'Dates', 'Credit', 'Monthly Due', 'Total Owed', 'Total Paid', 'Remaining', 'Status'];
+  // Shift columns: B=2 to I=9... wait, we have 8 cols starting at B
+  // Actually let's use B through I (cols 2-9) but we defined 8 cols. Let me adjust.
+  // We'll place data in cols B(2) through H(8) — that's 7 cols. We have 8 headers.
+  // Let me use a helper to map.
+
+  const hRow = ws1.getRow(cycleHeaderRow);
+  hRow.height = 26;
+  cycleHeaders.forEach((h, i) => {
+    const cell = hRow.getCell(i + 2);
+    cell.value = h;
+    cell.font = { name: 'Calibri', size: 9, bold: true, color: white };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: headerBg };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = allBorders;
   });
-  const ws2 = XLSX.utils.json_to_sheet(payRows);
-  ws2['!cols'] = [{ wch: 12 },{ wch: 12 },{ wch: 10 },{ wch: 12 },{ wch: 20 },{ wch: 28 }];
-  XLSX.utils.book_append_sheet(wb, ws2, 'Payments');
 
+  // Need an extra column for Status
+  ws1.getColumn(9).width = 16;
+
+  cycles.forEach((c, idx) => {
+    const r = cycleHeaderRow + 1 + idx;
+    const row = ws1.getRow(r);
+    row.height = 22;
+    const isStripe = idx % 2 === 1;
+    const bg = isStripe ? stripeBg : white;
+
+    const vals = [
+      `${c.month_name} ${c.year}`,
+      `${fmtD(c.start)} — ${fmtD(c.end)}`,
+      c.opening_balance, c.monthly_due, c.total_owed, c.total_paid, c.remaining, c.status
+    ];
+
+    vals.forEach((v, i) => {
+      const cell = row.getCell(i + 2);
+      cell.value = v;
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: bg };
+      cell.border = allBorders;
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.font = { name: 'Calibri', size: 10, color: textDark };
+
+      if (i >= 2 && i <= 6) cell.numFmt = currency;
+      if (i === 0) cell.font = { name: 'Calibri', size: 10, bold: true, color: textDark };
+      if (i === 0) cell.alignment = { vertical: 'middle', horizontal: 'left' };
+    });
+
+    // Color the status cell
+    const statusCell = row.getCell(9);
+    if (c.status === 'Paid') {
+      statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: greenBg };
+      statusCell.font = { name: 'Calibri', size: 10, bold: true, color: greenText };
+    } else if (c.status === 'Partially Paid') {
+      statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: amberBg };
+      statusCell.font = { name: 'Calibri', size: 10, bold: true, color: amberText };
+    } else {
+      statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: redBg };
+      statusCell.font = { name: 'Calibri', size: 10, bold: true, color: redText };
+    }
+
+    // Color credit and remaining
+    const creditCell = row.getCell(4);
+    if (c.opening_balance > 0) creditCell.font = { name: 'Calibri', size: 10, color: redText };
+    const remCell = row.getCell(8);
+    if (c.remaining > 0) remCell.font = { name: 'Calibri', size: 10, bold: true, color: redText };
+    else remCell.font = { name: 'Calibri', size: 10, bold: true, color: greenText };
+    const paidCell = row.getCell(7);
+    paidCell.font = { name: 'Calibri', size: 10, color: greenText };
+  });
+
+  // ===== PAYMENTS SHEET =====
+  const ws2 = wb.addWorksheet('Payments', { properties: { tabColor: { argb: '059669' } } });
+  ws2.columns = [
+    { width: 4 }, { width: 14 }, { width: 16 }, { width: 12 },
+    { width: 16 }, { width: 24 }, { width: 20 }
+  ];
+
+  // Title
+  ws2.mergeCells('B2:G2');
+  const t2 = ws2.getCell('B2');
+  t2.value = `${clientName} — Payment History`;
+  t2.font = { name: 'Calibri', size: 18, bold: true, color: white };
+  t2.fill = { type: 'pattern', pattern: 'solid', fgColor: darkBg };
+  t2.alignment = { vertical: 'middle' };
+  ws2.getRow(2).height = 40;
+  for (let c = 2; c <= 7; c++) ws2.getCell(2, c).fill = { type: 'pattern', pattern: 'solid', fgColor: darkBg };
+
+  ws2.mergeCells('B3:G3');
+  const s2 = ws2.getCell('B3');
+  s2.value = `${payments.length} payments  •  Total: $${totalAllPaid.toLocaleString('en-US', {minimumFractionDigits:2})}`;
+  s2.font = { name: 'Calibri', size: 10, color: { argb: 'FF9CA3AF' } };
+  s2.fill = { type: 'pattern', pattern: 'solid', fgColor: darkBg };
+  ws2.getRow(3).height = 24;
+  for (let c = 2; c <= 7; c++) ws2.getCell(3, c).fill = { type: 'pattern', pattern: 'solid', fgColor: darkBg };
+
+  // Headers
+  const payHeaders = ['Date', 'Amount', 'Method', 'Invoice', 'Notes', 'Cycle'];
+  const phRow = ws2.getRow(5);
+  phRow.height = 26;
+  payHeaders.forEach((h, i) => {
+    const cell = phRow.getCell(i + 2);
+    cell.value = h;
+    cell.font = { name: 'Calibri', size: 9, bold: true, color: white };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: headerBg };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = allBorders;
+  });
+
+  payments.forEach((p, idx) => {
+    const r = 6 + idx;
+    const row = ws2.getRow(r);
+    row.height = 22;
+    const isStripe = idx % 2 === 1;
+    const bg = isStripe ? stripeBg : white;
+    const cyc = cycleForDate(p.payment_date);
+
+    const vals = [
+      fmtD(p.payment_date), Number(p.amount), p.method,
+      p.invoice || '', p.notes || '',
+      cyc ? `${cyc.month_name} ${cyc.year}` : ''
+    ];
+
+    vals.forEach((v, i) => {
+      const cell = row.getCell(i + 2);
+      cell.value = v;
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: bg };
+      cell.border = allBorders;
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.font = { name: 'Calibri', size: 10, color: textDark };
+
+      if (i === 0) { cell.alignment = { vertical: 'middle', horizontal: 'left' }; cell.font = { name: 'Calibri', size: 10, bold: true, color: textDark }; }
+      if (i === 1) { cell.numFmt = currency; cell.font = { name: 'Calibri', size: 10, bold: true, color: greenText }; }
+      if (i === 5) { cell.font = { name: 'Calibri', size: 9, italic: true, color: purple }; }
+    });
+  });
+
+  // Total row
+  const totalRow = 6 + payments.length;
+  ws2.mergeCells(`B${totalRow}:C${totalRow}`);
+  ws2.getCell(`B${totalRow}`).value = 'TOTAL';
+  ws2.getCell(`B${totalRow}`).font = { name: 'Calibri', size: 10, bold: true, color: white };
+  ws2.getCell(`B${totalRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: darkBg };
+  ws2.getCell(`B${totalRow}`).alignment = { vertical: 'middle', horizontal: 'right' };
+  ws2.getCell(`C${totalRow}`).fill = { type: 'pattern', pattern: 'solid', fgColor: darkBg };
+  const totalCell = ws2.getCell(totalRow, 3);
+  totalCell.value = totalAllPaid;
+  totalCell.numFmt = currency;
+  totalCell.font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FF34D399' } };
+  totalCell.fill = { type: 'pattern', pattern: 'solid', fgColor: darkBg };
+  totalCell.alignment = { vertical: 'middle', horizontal: 'center' };
+  for (let c = 4; c <= 7; c++) {
+    ws2.getCell(totalRow, c).fill = { type: 'pattern', pattern: 'solid', fgColor: darkBg };
+    ws2.getCell(totalRow, c).border = allBorders;
+  }
+  ws2.getRow(totalRow).height = 28;
+
+  // Generate file and download
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
   const ts = new Date().toISOString().split('T')[0];
-  XLSX.writeFile(wb, `${(client?.name || 'Client').replace(/\s+/g, '_')}_Payments_${ts}.xlsx`);
+  a.download = `${clientName.replace(/\s+/g, '_')}_Payments_${ts}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) closeModal(o.id); }));
