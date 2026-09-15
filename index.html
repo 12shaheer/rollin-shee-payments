@@ -394,8 +394,8 @@ function generateCycles(client, payments) {
 
     const cyclePays = payments.filter(p => p.payment_date >= cycleStart && p.payment_date <= cycleEnd);
     const totalPaid = cyclePays.reduce((s, p) => s + Number(p.amount), 0);
-    const totalOwed = carryover + monthlyDue;
-    const remaining = Math.max(totalOwed - totalPaid, 0);
+    const totalOwed = Math.max(carryover + monthlyDue, 0);
+    const remaining = totalOwed - totalPaid;
     const status = remaining <= 0 ? 'Paid' : totalPaid > 0 ? 'Partially Paid' : 'Unpaid';
     const pct = totalOwed > 0 ? Math.min(100, (totalPaid / totalOwed) * 100) : 100;
 
@@ -447,8 +447,10 @@ function renderCurrent(c) {
   const color = c.status === 'Paid' ? 'var(--green)' : c.status === 'Partially Paid' ? 'var(--amber)' : 'var(--red)';
   const creditNote = c.opening_balance > 0
     ? `<div class="credit-note warn"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>${fmt(c.opening_balance)} unpaid from previous cycle</div>`
+    : c.opening_balance < 0
+    ? `<div class="credit-note ok"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>${fmt(Math.abs(c.opening_balance))} credit from previous cycle</div>`
     : c.opening_balance === 0 && allCycles.length > 1
-    ? `<div class="credit-note ok"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>No outstanding credit</div>`
+    ? `<div class="credit-note ok"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>No outstanding balance</div>`
     : '';
 
   el.innerHTML = `
@@ -460,11 +462,11 @@ function renderCurrent(c) {
       ${badgeFor(c.status)}
     </div>
     <div class="stats-grid">
-      <div class="stat-tile"><div class="sl">Credit</div><div class="sv ${c.opening_balance > 0 ? 'red' : ''}">${fmt(c.opening_balance)}</div></div>
+      <div class="stat-tile"><div class="sl">Balance</div><div class="sv ${c.opening_balance > 0 ? 'red' : c.opening_balance < 0 ? 'green' : ''}">${c.opening_balance < 0 ? '+' + fmt(Math.abs(c.opening_balance)) : fmt(c.opening_balance)}</div></div>
       <div class="stat-tile"><div class="sl">Monthly Due</div><div class="sv">${fmt(c.monthly_due)}</div></div>
       <div class="stat-tile"><div class="sl">Total Owed</div><div class="sv">${fmt(c.total_owed)}</div></div>
       <div class="stat-tile"><div class="sl">Paid</div><div class="sv green">${fmt(c.total_paid)}</div></div>
-      <div class="stat-tile wide"><div class="sl">Remaining</div><div class="sv ${c.remaining > 0 ? 'red' : 'green'}">${fmt(c.remaining)}</div></div>
+      <div class="stat-tile wide"><div class="sl">${c.remaining <= 0 ? 'Overpaid' : 'Remaining'}</div><div class="sv ${c.remaining > 0 ? 'red' : 'green'}">${c.remaining <= 0 ? '+' + fmt(Math.abs(c.remaining)) : fmt(c.remaining)}</div></div>
     </div>
     <div class="progress-track"><div class="progress-fill" style="width:${c.pct}%;background:${color}"></div></div>
     ${creditNote}
@@ -528,10 +530,10 @@ function renderPast(list) {
         ${badgeFor(c.status)}
       </div>
       <div class="past-stats">
-        <div class="past-stat"><div class="ps-label">Credit</div><div class="ps-value" style="color:${c.opening_balance > 0 ? 'var(--red)' : 'var(--text)'}">${fmt(c.opening_balance)}</div></div>
+        <div class="past-stat"><div class="ps-label">Balance</div><div class="ps-value" style="color:${c.opening_balance > 0 ? 'var(--red)' : c.opening_balance < 0 ? 'var(--green)' : 'var(--text)'}">${c.opening_balance < 0 ? '+' + fmt(Math.abs(c.opening_balance)) : fmt(c.opening_balance)}</div></div>
         <div class="past-stat"><div class="ps-label">Due</div><div class="ps-value">${fmt(c.monthly_due)}</div></div>
         <div class="past-stat"><div class="ps-label">Paid</div><div class="ps-value" style="color:var(--green)">${fmt(c.total_paid)}</div></div>
-        <div class="past-stat"><div class="ps-label">Remaining</div><div class="ps-value" style="color:${c.remaining > 0 ? 'var(--red)' : 'var(--green)'}">${fmt(c.remaining)}</div></div>
+        <div class="past-stat"><div class="ps-label">${c.remaining <= 0 ? 'Overpaid' : 'Remaining'}</div><div class="ps-value" style="color:${c.remaining > 0 ? 'var(--red)' : 'var(--green)'}">${c.remaining <= 0 ? '+' + fmt(Math.abs(c.remaining)) : fmt(c.remaining)}</div></div>
       </div>
     </div>
   `).join('');
