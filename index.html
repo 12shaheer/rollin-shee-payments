@@ -309,7 +309,7 @@ body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: v
       <div class="field"><label>Name</label><input type="text" id="newClientName" required placeholder="Client name"></div>
       <div class="field"><label>Monthly Due ($)</label><input type="number" id="newClientDue" step="0.01" value="6500" required></div>
       <div class="field"><label>Billing Start Date</label><input type="date" id="newClientStart" required></div>
-      <div class="field"><label>Initial Balance Owed ($)</label><input type="number" id="newClientBal" step="0.01" value="0"></div>
+      <div class="field"><label>Starting Balance ($)</label><input type="number" id="newClientBal" step="0.01" value="0"></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" onclick="closeModal('addClientModal')">Cancel</button>
         <button type="submit" class="btn btn-accent">Add</button>
@@ -324,7 +324,7 @@ body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: v
     <form onsubmit="return saveSettings(event)">
       <div class="field"><label>Monthly Due ($)</label><input type="number" id="setDue" step="0.01" required></div>
       <div class="field"><label>Billing Start Date</label><input type="date" id="setStart" required></div>
-      <div class="field"><label>Initial Balance Owed ($)</label><input type="number" id="setBal" step="0.01" required></div>
+      <div class="field"><label>Starting Balance ($)</label><input type="number" id="setBal" step="0.01" required></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" onclick="closeModal('settingsModal')">Cancel</button>
         <button type="submit" class="btn btn-accent">Save</button>
@@ -696,7 +696,8 @@ async function exportXlsx() {
   ws1.getCell('B5').value = 'TOTAL PAID (ALL TIME)';
   ws1.getCell('B5').font = { name: 'Calibri', size: 8, bold: true, color: textMuted };
   ws1.mergeCells('D5:E5');
-  ws1.getCell('D5').value = 'OUTSTANDING BALANCE';
+  const outstanding = current ? current.remaining : 0;
+  ws1.getCell('D5').value = outstanding < 0 ? 'CREDIT BALANCE' : 'OUTSTANDING BALANCE';
   ws1.getCell('D5').font = { name: 'Calibri', size: 8, bold: true, color: textMuted };
   ws1.mergeCells('F5:G5');
   ws1.getCell('F5').value = 'TOTAL CYCLES';
@@ -708,8 +709,7 @@ async function exportXlsx() {
   ws1.getCell('B6').numFmt = currency;
   ws1.getCell('B6').font = { name: 'Calibri', size: 16, bold: true, color: greenText };
   ws1.mergeCells('D6:E6');
-  const outstanding = current ? current.remaining : 0;
-  ws1.getCell('D6').value = outstanding;
+  ws1.getCell('D6').value = Math.abs(outstanding);
   ws1.getCell('D6').numFmt = currency;
   ws1.getCell('D6').font = { name: 'Calibri', size: 16, bold: true, color: outstanding > 0 ? redText : greenText };
   ws1.mergeCells('F6:G6');
@@ -724,7 +724,7 @@ async function exportXlsx() {
   ws1.getRow(cycleStartRow).height = 20;
 
   const cycleHeaderRow = cycleStartRow + 1;
-  const cycleHeaders = ['Cycle', 'Dates', 'Credit', 'Monthly Due', 'Total Owed', 'Total Paid', 'Remaining', 'Status'];
+  const cycleHeaders = ['Cycle', 'Dates', 'Balance', 'Monthly Due', 'Total Owed', 'Total Paid', 'Remaining', 'Status'];
   // Shift columns: B=2 to I=9... wait, we have 8 cols starting at B
   // Actually let's use B through I (cols 2-9) but we defined 8 cols. Let me adjust.
   // We'll place data in cols B(2) through H(8) — that's 7 cols. We have 8 headers.
@@ -783,9 +783,10 @@ async function exportXlsx() {
       statusCell.font = { name: 'Calibri', size: 10, bold: true, color: redText };
     }
 
-    // Color credit and remaining
-    const creditCell = row.getCell(4);
-    if (c.opening_balance > 0) creditCell.font = { name: 'Calibri', size: 10, color: redText };
+    // Color balance and remaining
+    const balCell = row.getCell(4);
+    if (c.opening_balance > 0) balCell.font = { name: 'Calibri', size: 10, color: redText };
+    else if (c.opening_balance < 0) balCell.font = { name: 'Calibri', size: 10, color: greenText };
     const remCell = row.getCell(8);
     if (c.remaining > 0) remCell.font = { name: 'Calibri', size: 10, bold: true, color: redText };
     else remCell.font = { name: 'Calibri', size: 10, bold: true, color: greenText };
