@@ -466,7 +466,7 @@ function renderCurrent(c) {
       <div class="stat-tile"><div class="sl">Monthly Due</div><div class="sv">${fmt(c.monthly_due)}</div></div>
       <div class="stat-tile"><div class="sl">Total Owed</div><div class="sv">${fmt(c.total_owed)}</div></div>
       <div class="stat-tile"><div class="sl">Paid</div><div class="sv green">${fmt(c.total_paid)}</div></div>
-      <div class="stat-tile wide"><div class="sl">${c.remaining <= 0 ? 'Overpaid' : 'Remaining'}</div><div class="sv ${c.remaining > 0 ? 'red' : 'green'}">${c.remaining <= 0 ? '+' + fmt(Math.abs(c.remaining)) : fmt(c.remaining)}</div></div>
+      <div class="stat-tile wide"><div class="sl">${c.remaining < 0 ? 'Overpaid' : 'Remaining'}</div><div class="sv ${c.remaining > 0 ? 'red' : 'green'}">${c.remaining < 0 ? '+' + fmt(Math.abs(c.remaining)) : fmt(c.remaining)}</div></div>
     </div>
     <div class="progress-track"><div class="progress-fill" style="width:${c.pct}%;background:${color}"></div></div>
     ${creditNote}
@@ -533,7 +533,7 @@ function renderPast(list) {
         <div class="past-stat"><div class="ps-label">Balance</div><div class="ps-value" style="color:${c.opening_balance > 0 ? 'var(--red)' : c.opening_balance < 0 ? 'var(--green)' : 'var(--text)'}">${c.opening_balance < 0 ? '+' + fmt(Math.abs(c.opening_balance)) : fmt(c.opening_balance)}</div></div>
         <div class="past-stat"><div class="ps-label">Due</div><div class="ps-value">${fmt(c.monthly_due)}</div></div>
         <div class="past-stat"><div class="ps-label">Paid</div><div class="ps-value" style="color:var(--green)">${fmt(c.total_paid)}</div></div>
-        <div class="past-stat"><div class="ps-label">${c.remaining <= 0 ? 'Overpaid' : 'Remaining'}</div><div class="ps-value" style="color:${c.remaining > 0 ? 'var(--red)' : 'var(--green)'}">${c.remaining <= 0 ? '+' + fmt(Math.abs(c.remaining)) : fmt(c.remaining)}</div></div>
+        <div class="past-stat"><div class="ps-label">${c.remaining < 0 ? 'Overpaid' : 'Remaining'}</div><div class="ps-value" style="color:${c.remaining > 0 ? 'var(--red)' : 'var(--green)'}">${c.remaining < 0 ? '+' + fmt(Math.abs(c.remaining)) : fmt(c.remaining)}</div></div>
       </div>
     </div>
   `).join('');
@@ -754,7 +754,7 @@ async function exportXlsx() {
     const vals = [
       `${c.month_name} ${c.year}`,
       `${fmtD(c.start)} — ${fmtD(c.end)}`,
-      c.opening_balance, c.monthly_due, c.total_owed, c.total_paid, c.remaining, c.status
+      c.opening_balance, c.monthly_due, c.total_owed, c.total_paid, c.remaining < 0 ? Math.abs(c.remaining) : c.remaining, c.status
     ];
 
     vals.forEach((v, i) => {
